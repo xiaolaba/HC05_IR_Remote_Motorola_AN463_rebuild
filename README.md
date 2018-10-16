@@ -9,6 +9,8 @@ extracted the source code listing, try on the own, rebuild the firmware and late
 
 P&E assembler is used for this task, so far so good, assembly and listing should be different and CPU cycles time is endorsed inherently, such attempts, not bad. hopefully firmware will be 100% comply to original designed.
 
+asm source code, firmware S19, everthing included here.
+
 
 
 ```
