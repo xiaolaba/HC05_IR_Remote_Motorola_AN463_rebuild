@@ -1,2 +1,333 @@
 # HC05_IR_Remote_Motorola_AN463_rebuild
-The Motorola was, former Freescale, now NXP, AN463 source code and my own rebuild
+The Motorola was and then former Freescale, now NXP, AN463 source code and my own rebuild  
+
+AN463, 68HC05K0 Infra-red Remote Control
+https://www.nxp.com/docs/en/application-note/AN463.pdf
+
+Only application note in PDF and the source code listing but no project file or source file.  
+extracted the source code listing, try on the own, rebuild the firmware and later may be change on the own for self coding.
+
+P&E assembler is used for this task, so far so good, assembly and listing should be different and CPU cycles time is endorsed inherently, such attempts, not bad. hopefully firmware will be 100% comply to original designed.
+
+
+
+`
+
+AN463_xiaolaba.asm     Assembled with CASM08Z  2018-10-16  22:53:00  PAGE 1
+
+
+
+ 0000                   1  $PAGEWIDTH 120 ; xiaolaba, format the listing file to be no 80 columns wrapping, no pages & breaks
+ 0000                   2  $PAGELENGTH 1200
+                        3  ** copy Motorola AN463 software listing, removed all dummy content
+                        4  ** assembly with PE assembler, produce S19 file
+                        5  ** xiaolaba, 2018-OCT-16
+                        6  
+                        7  
+                        8  
+                        9  ***************************************************************
+                       10  * INFRA RED REMOTE CONTROL FOR K0,K1                          *
+                       11  ***************************************************************
+                       12  * WRITTEN BY A.BRESLIN    13.1.92                             *
+                       13  ***************************************************************
+                       14  * THIS PROGRAM READS AND ENCODES A KEY FROM A 24 KEY KEYBOARD *
+                       15  * TO A FORM OF BIPHASE PULSE CODE MODULATION (PCM) FOR INFRA  *
+                       16  * RED TRANSMISSION. IT USES THE TRANSMISSION PROTOCOL OF THE  *
+                       17  * MC144105 IR REMOTE CONTROL TRANSMITTER                      *
+                       18  ***************************************************************
+                       19  
+                       20  
+ 0000                  21  porta   equ     00
+ 0000                  22  portb   equ     01
+ 0000                  23  ddra    equ     04
+ 0000                  24  ddrb    equ     05
+ 0000                  25  tcsr    equ     $08
+ 0000                  26  papd    equ     $10
+                       27  
+ 00E0                  28          org     $e0
+                       29  
+ 00E0                  30  keyst1  rmb     1               ; initial code from keyboard
+ 00E1                  31  keyst2  rmb     1               ; keycode
+ 00E2                  32  keyst3  rmb     1               ; code transmitted
+ 00E3                  33  dflag   rmb     1               ; flag for last and 9th bits
+                       34  
+                       35  
+                       36  **************************************************************
+                       37  * THE PORTS ARE SET UP USING PORTA 0-3 AS INPUTS MAKING USE  *
+                       38  * OF THE INTERNAL INTERUPT GENERATION ON THESE I/0 LINES.    *
+                       39  * STOP MODE IS ENTERED UNTIL A KEY IS PRESSED                *
+                       40  **************************************************************
+                       41  
+ 0200                  42          org     $200
+                       43  
+ 0200 [02] 9A          44  start   cli
+ 0201 [04] AD04        45  wpres   bsr     setup
+ 0203 [01] 9C          46          rsp
+ 0204 [01] 8E          47          stop
+ 0205 [03] 20FA        48          bra     wpres
+                       49  
+ 0207 [02] A6F0        50  setup   lda     #$f0            ; porta 0-3 inputs
+ 0209 [03] B704        51          sta     ddra            ; 4-7 as outputs
+ 020B [03] B700        52          sta     porta           ; set outputs high
+ 020D [03] B710        53          sta     papd            ; 0-3 pulldown
+ 020F [02] A603        54          lda     #$03            ; portb 0-1 outputs
+ 0211 [03] B705        55          sta     ddrb
+ 0213 [02] A601        56          lda     #$01            ; set portb 0 high
+ 0215 [03] B701        57          sta     portb
+ 0217 [04] 81          58          rts
+                       59  
+                       60  **************************************************************
+                       61  * THE KEY READ IS DECODED FOR TRANSMISSION.                  *
+                       62  * THE TRANSMISSION PROTOCOL REQUIRES A START MESSAGE OF 9    *
+                       63  * ONES FOLLOWED BY THE KEYPRESSED CODE. THIS CODE IS         *
+                       64  * CONTINUALLY RETRANSMITTED IF THE KEY IS HELD DOWN. AN END  *
+                       65  * CODE OF 9 ONES TERMINATES THE TRANSMISSION AND THE DEVICE  *
+                       66  * RETURNS TO STOP MODE.                                      *
+                       67  **************************************************************
+                       68  
+ 0218 [04] AD34        69  presd   bsr     keyscn          ; get key pressed
+ 021A [03] B6E1        70          lda     keyst2          ; save key to check
+ 021C [03] B7E0        71          sta     keyst1          ; if key held down
+ 021E [04] AD67        72          bsr     decode          ; decode key pressed
+ 0220 [04] 12E3        73          bset    1,dflag         ; set nineth bit to 1
+ 0222 [02] A6FF        74          lda     #$ff            ; send start data
+ 0224 [03] B7E2        75          sta     keyst3          ; to transmission routine
+ 0226 [04] AD71        76          bsr     trnmit          ; nine one's
+ 0228 [03] B6E1        77  sndagn  lda     keyst2          ; send key press message
+ 022A [03] B7E2        78          sta     keyst3          ; byte
+ 022C [04] 13E3        79          bclr    1,dflag         ; set nineth bit to 0
+ 022E [04] AD69        80          bsr     trnmit
+ 0230 [03] B600        81          lda     porta           ; check if key still pressed
+ 0232 [02] A40F        82          and     #$0f            ; end if no key pressed
+ 0234 [03] 260F        83          bne     endtrn
+ 0236 [04] AD16        84          bsr     keyscn          ; else check if same
+ 0238 [03] B6E0        85          lda     keyst1          ; key pressed
+ 023A [03] B1E1        86          cmp     keyst2
+ 023C [03] 2607        87          bne     endtrn          ; end if not
+ 023E [02] AEC8        88          ldx     #$c8            ; delay
+ 0240 [01] 5A          89  tloop   decx                    ; before next
+ 0241 [03] 26FD        90          bne     tloop           ; transmission
+ 0243 [03] 20E3        91          bra     sndagn
+ 0245 [04] 12E3        92  endtrn  bset    1,dflag         ; send end message
+ 0247 [02] A6FF        93          lda     #$ff            ; of nine ones
+ 0249 [03] B7E2        94          sta     keyst3
+ 024B [04] AD4C        95          bsr     trnmit
+ 024D [07] 80          96          rti                     ; re-enter stop mode
+                       97  
+                       98  **************************************************************
+                       99  * WHEN A KEY IS PRESSED THE DEVICE COMES OUT OF STOP MODE    *
+                      100  * THE KEYBOARD IS SCANNED TO SEE WHICH KEY IS PRESSED        *
+                      101  **************************************************************
+                      102  
+ 024E [05] CD02FC     103  keyscn  jsr     datwt           ; wait for debounce
+ 0251 [03] B600       104          lda     porta           ; check if key press
+ 0253 [03] B7E0       105          sta     keyst1          ; store inputs
+ 0255 [02] A40F       106          and     #$0f            ; mask outputs
+ 0257 [03] 27A7       107          beq     start           ; stop if no key pressed
+ 0259 [02] AEEF       108          ldx     #$ef            ; set one row low
+ 025B [01] 9F         109  nxtrow  txa                     ; read ouput lines
+ 025C [03] B4E0       110          and     keyst1          ; combine with inputs
+ 025E [03] B7E1       111          sta     keyst2          ; store key code
+ 0260 [03] BF00       112          stx     porta           ; to find row which clears inpu
+ 0262 [03] B600       113          lda     porta           ; check for inputs cleared
+ 0264 [02] A40F       114          and     #$0f            ; mask outputs
+ 0266 [03] 271C       115          beq     gotit           ; zero in key-press row clears
+ 0268 [01] 58         116          lslx                    ; check if last row
+ 0269 [01] 5C         117          incx                    ; set lsb to 1
+ 026A [03] 2402       118          bcc     tryb            ; try portb output if not porta
+ 026C [03] 20ED       119          bra     nxtrow          ; try next porta output row
+                      120  
+ 026E [03] B6E0       121  tryb    lda     keyst1
+ 0270 [03] B7E1       122          sta     keyst2
+ 0272 [02] AEF0       123          ldx     #$f0
+ 0274 [03] BF00       124          stx     porta           ; set all porta outputs high
+ 0276 [04] 1101       125          bclr    0,portb         ; set portb 0 output low
+ 0278 [03] B600       126          lda     porta           ; check for inputs cleared
+ 027A [02] A40F       127          and     #$0f            ; mask outputs
+ 027C [03] 2706       128          beq     gotit           ; zero in key-press row clears
+ 027E [03] B6E1       129          lda     keyst2          ;
+ 0280 [02] A43F       130          and     #$3f            ; set individual code since las
+ 0282 [03] B7E1       131          sta     keyst2          ; store code
+ 0284 [04] 1001       132  gotit   bset    0,portb         ; set portb column high again
+ 0286 [04] 81         133          rts
+                      134  
+                      135  **************************************************************
+                      136  * THE DECODE ROUTINE USES TWO ARRAYS. IT COMPARES THE KEY    *
+                      137  * VALUE WITH THE ARRAY KEYDAT AND WHEN A MATCH IS FOUND THE  *
+                      138  * CORRESPONDING ELEMENT IN THE ARRAY TVDAT BECOMES THE       *
+                      139  * TRANSMITTED CODE.                                          *
+                      140  **************************************************************
+                      141  
+ 0287 [02] AE18       142  decode  ldx     #$18            ; data array offset to zero
+ 0289 [04] D60302     143  nxtel   lda     keydat,x        ; look at each element of array
+ 028C [03] B1E1       144          cmp     keyst2          ; compare with key read
+ 028E [03] 2703       145          beq     match           ; decode if match
+ 0290 [01] 5A         146          decx                    ; else try next element
+ 0291 [03] 26F6       147          bne     nxtel           ; norm if no match found
+ 0293 [04] D6031A     148  match   lda     tvdat,x         ; get key code
+ 0296 [03] B7E1       149          sta     keyst2          ; store code to transmit
+ 0298 [04] 81         150          rts
+                      151  
+                      152  **************************************************************
+                      153  * THE TRANSMISSION PROTOCOL REQUIRES A PRE-BIT, A PRE-BIT    *
+                      154  * PAUSE, A START BIT AND NINE DATA BITS, WHERE THE PRE-BIT   *
+                      155  * AND THE START BIT ARE LOGIC '1'.                          *
+                      156  **************************************************************
+                      157  
+ 0299 [04] 10E3       158  trnmit  bset    0,dflag         ; initialise for first bit
+ 029B [04] AD32       159          bsr     send1           ; send pre-bit
+ 029D [05] CD02FC     160          jsr     datwt           ; pre-bit pause
+ 02A0 [05] CD02FC     161          jsr     datwt           ; equalling four half data peri
+ 02A3 [05] CD02FC     162          jsr     datwt           ;
+ 02A6 [05] CD02FC     163          jsr     datwt           ;
+ 02A9 [04] AD24       164          bsr     send1           ; send start bit
+ 02AB [02] AE08       165          ldx     #$08            ; transmit 8 data bits
+ 02AD [04] 34E2       166  nxtbit  lsr     keyst3          ; get next bit
+ 02AF [03] 2504       167          bcs     data1           ; send 1 if carry set
+ 02B1 [04] AD28       168          bsr     send0           ; send 0 if carry clear
+ 02B3 [03] 2002       169          bra     bitsnt
+ 02B5 [04] AD18       170  data1   bsr     send1
+ 02B7 [01] 5A         171  bitsnt  decx                    ; countdown bits sent
+ 02B8 [03] 26F3       172          bne     nxtbit          ; send next bit if count not ze
+ 02BA [05] 03E304     173          brclr   1,dflag,send00  ; if flag set
+ 02BD [04] AD10       174          bsr     send1           ; send 1 as nineth bit
+ 02BF [03] 2002       175          bra     endend          ;
+ 02C1 [04] AD18       176  send00  bsr     send0           ; else send 0
+ 02C3 [02] AE18       177  endend  ldx     #$18
+ 02C5 [04] AD35       178  loopw   bsr     datwt           ; delay between successive
+ 02C7 [04] AD33       179          bsr     datwt           ; transmissions
+ 02C9 [04] AD31       180          bsr     datwt
+ 02CB [01] 5A         181          decx
+ 02CC [03] 26F7       182          bne     loopw
+ 02CE [04] 81         183          rts
+                      184  
+                      185  
+                      186  **************************************************************
+                      187  * TO TRANSMIT A LOGIC '1' A 32kHz PULSE TRAIN FOR 512us IS   *
+                      188  * FOLLOWED BY A 512us PAUSE.                                 *
+                      189  **************************************************************
+                      190  
+ 02CF [05] 01E304     191  send1   brclr   0,dflag,last0   ; check if last bit was zero
+ 02D2 [02] A610       192          lda     #$10            ; burst if last bit was 1
+ 02D4 [04] AD15       193          bsr     burst           ; 32kHz pulse for 512us
+ 02D6 [04] AD24       194  last0   bsr     datwt           ; wait 512us
+ 02D8 [04] 10E3       195          bset    0,dflag         ; set flag as 1 sent
+ 02DA [04] 81         196          rts
+                      197  
+                      198  **************************************************************
+                      199  * TO TRANSMIT A LOGIC '0' A 512us PAUSE IS FOLLOWED BY A     *
+                      200  * 32kHz PULSE TRAIN FOR 512us. IF A LOGIC '1' FOLLOWS A '0'  *
+                      201  * THE 32kHz IS CONTINUED FOR 1024us TO AVOID A PROCESSING    *
+                      202  * DELAY                                                      *
+                      203  **************************************************************
+                      204  
+ 02DB [04] AD1F       205  send0   bsr     datwt           ; wait 512us
+ 02DD [05] 00E204     206          brset   0,keyst3,next1  ; check if next bit is 1
+ 02E0 [02] A610       207          lda     #$10            ; single burst if 1
+ 02E2 [03] 2002       208          bra     datset          ; data set
+ 02E4 [02] A620       209  next1   lda     #$20            ; double burst required
+ 02E6 [04] AD03       210  datset  bsr     burst           ; 32kHz pulse for 512us
+ 02E8 [04] 11E3       211          bclr    0,dflag         ; clear flag as 0 sent
+ 02EA [04] 81         212          rts
+                      213  
+                      214  **************************************************************
+                      215  * THE 32kHz PULSE TRAIN HAS A MARK TO SPACE RATIO OF 1 TO 3  *
+                      216  **************************************************************
+                      217  
+ 02EB [04] 1301       218  burst   bclr    1,portb         ; portb 1 low
+ 02ED [03] 21FE       219          brn     *
+ 02EF [04] 1201       220          bset    1,portb         ; portb 1 high
+ 02F1 [03] 21FE       221          brn     *
+ 02F3 [04] 1301       222          bclr    1,portb         ; portb 1 low
+ 02F5 [01] 9D         223          nop
+ 02F6 [01] 4A         224          deca                    ; decrement count
+ 02F7 [03] 2702       225          beq     endbur          ; end of burst ?
+ 02F9 [03] 20F0       226          bra     burst
+ 02FB [04] 81         227  endbur  rts
+                      228  
+                      229  
+ 02FC [02] A652       230  datwt   lda     #$52            ; count
+ 02FE [01] 4A         231  loop    deca                    ; to provide 512us delay
+ 02FF [03] 26FD       232          bne     loop            ; after instruction times
+ 0301 [04] 81         233          rts
+                      234  
+ 0302      31F1E1D1   235  keydat  fcb     $31,$f1,$e1,$d1,$b1,$71
+           B171 
+ 0308      32F2E2D2   236          fcb     $32,$f2,$e2,$d2,$b2,$72
+           B272 
+ 030E      34F4E4D4   237          fcb     $34,$f4,$e4,$d4,$b4,$74
+           B474 
+ 0314      38F8E8D8   238          fcb     $38,$f8,$e8,$d8,$b8,$78
+           B878 
+                      239  
+ 031A      113E3910   240  tvdat   fcb     $11,$3e,$39,$10,$17,$14
+           1714 
+ 0320      123D3B2C   241          fcb     $12,$3d,$3b,$2c,$18,$15
+           1815 
+ 0326      133C3A2D   242          fcb     $13,$3c,$3a,$2d,$19,$16
+           1916 
+ 032C      000D0C07   243          fcb     $00,$0d,$0c,$07,$06,$01
+           0601 
+                      244  
+                      245  
+ 0332 [07] 80         246  softin  rti
+                      247  
+ 03FA                 248          org     $3fa
+                      249  
+ 03FA      0218       250          fdb     presd           ; scan keybrd on int
+ 03FC      0332       251          fdb     softin          ; software interrupt
+ 03FE      0200       252          fdb     start           ; resett
+                      253  
+                      254  
+                      255  ;$NOLIST ; xiaolaba, format the listing file to be no 80 columns wrapping
+                      256  
+                      257   
+
+ Symbol Table 
+
+BITSNT           02B7
+BURST            02EB
+DATA1            02B5
+DATSET           02E6
+DATWT            02FC
+DDRA             0004
+DDRB             0005
+DECODE           0287
+DFLAG            00E3
+ENDBUR           02FB
+ENDEND           02C3
+ENDTRN           0245
+GOTIT            0284
+KEYDAT           0302
+KEYSCN           024E
+KEYST1           00E0
+KEYST2           00E1
+KEYST3           00E2
+LAST0            02D6
+LOOP             02FE
+LOOPW            02C5
+MATCH            0293
+NEXT1            02E4
+NXTBIT           02AD
+NXTEL            0289
+NXTROW           025B
+PAPD             0010
+PORTA            0000
+PORTB            0001
+PRESD            0218
+SEND0            02DB
+SEND00           02C1
+SEND1            02CF
+SETUP            0207
+SNDAGN           0228
+SOFTIN           0332
+START            0200
+TCSR             0008
+TLOOP            0240
+TRNMIT           0299
+TRYB             026E
+TVDAT            031A
+WPRES            0201
+
+`
+
