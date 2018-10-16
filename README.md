@@ -13,11 +13,12 @@ P&E assembler is used for this task, so far so good, assembly and listing should
 
 ```
 
-AN463_xiaolaba.asm     Assembled with CASM08Z  2018-10-16  22:53:00  PAGE 1
+
+AN463_xiaolaba.asm     Assembled with CASM08Z  2018-10-16  22:59:00  PAGE 1
 
 
 
- 0000                   1  $PAGEWIDTH 120 ; xiaolaba, format the listing file to be no 80 columns wrapping, no pages & breaks
+ 0000                   1  $PAGEWIDTH 160 ; xiaolaba, format the listing file to be no 80 columns wrapping, no pages & breaks
  0000                   2  $PAGELENGTH 1200
                         3  ** copy Motorola AN463 software listing, removed all dummy content
                         4  ** assembly with PE assembler, produce S19 file
@@ -128,10 +129,10 @@ AN463_xiaolaba.asm     Assembled with CASM08Z  2018-10-16  22:53:00  PAGE 1
  025B [01] 9F         109  nxtrow  txa                     ; read ouput lines
  025C [03] B4E0       110          and     keyst1          ; combine with inputs
  025E [03] B7E1       111          sta     keyst2          ; store key code
- 0260 [03] BF00       112          stx     porta           ; to find row which clears inpu
+ 0260 [03] BF00       112          stx     porta           ; to find row which clears inputs
  0262 [03] B600       113          lda     porta           ; check for inputs cleared
  0264 [02] A40F       114          and     #$0f            ; mask outputs
- 0266 [03] 271C       115          beq     gotit           ; zero in key-press row clears
+ 0266 [03] 271C       115          beq     gotit           ; zero in key-press row clears inputs
  0268 [01] 58         116          lslx                    ; check if last row
  0269 [01] 5C         117          incx                    ; set lsb to 1
  026A [03] 2402       118          bcc     tryb            ; try portb output if not porta
@@ -144,9 +145,9 @@ AN463_xiaolaba.asm     Assembled with CASM08Z  2018-10-16  22:53:00  PAGE 1
  0276 [04] 1101       125          bclr    0,portb         ; set portb 0 output low
  0278 [03] B600       126          lda     porta           ; check for inputs cleared
  027A [02] A40F       127          and     #$0f            ; mask outputs
- 027C [03] 2706       128          beq     gotit           ; zero in key-press row clears
+ 027C [03] 2706       128          beq     gotit           ; zero in key-press row clears inputs
  027E [03] B6E1       129          lda     keyst2          ;
- 0280 [02] A43F       130          and     #$3f            ; set individual code since las
+ 0280 [02] A43F       130          and     #$3f            ; set individual code since last row
  0282 [03] B7E1       131          sta     keyst2          ; store code
  0284 [04] 1001       132  gotit   bset    0,portb         ; set portb column high again
  0286 [04] 81         133          rts
@@ -171,13 +172,13 @@ AN463_xiaolaba.asm     Assembled with CASM08Z  2018-10-16  22:53:00  PAGE 1
                       152  **************************************************************
                       153  * THE TRANSMISSION PROTOCOL REQUIRES A PRE-BIT, A PRE-BIT    *
                       154  * PAUSE, A START BIT AND NINE DATA BITS, WHERE THE PRE-BIT   *
-                      155  * AND THE START BIT ARE LOGIC '1'.                          *
+                      155  * AND THE START BIT ARE LOGIC '1'.                           *
                       156  **************************************************************
                       157  
  0299 [04] 10E3       158  trnmit  bset    0,dflag         ; initialise for first bit
  029B [04] AD32       159          bsr     send1           ; send pre-bit
  029D [05] CD02FC     160          jsr     datwt           ; pre-bit pause
- 02A0 [05] CD02FC     161          jsr     datwt           ; equalling four half data peri
+ 02A0 [05] CD02FC     161          jsr     datwt           ; equalling four half data period
  02A3 [05] CD02FC     162          jsr     datwt           ;
  02A6 [05] CD02FC     163          jsr     datwt           ;
  02A9 [04] AD24       164          bsr     send1           ; send start bit
@@ -188,7 +189,7 @@ AN463_xiaolaba.asm     Assembled with CASM08Z  2018-10-16  22:53:00  PAGE 1
  02B3 [03] 2002       169          bra     bitsnt
  02B5 [04] AD18       170  data1   bsr     send1
  02B7 [01] 5A         171  bitsnt  decx                    ; countdown bits sent
- 02B8 [03] 26F3       172          bne     nxtbit          ; send next bit if count not ze
+ 02B8 [03] 26F3       172          bne     nxtbit          ; send next bit if count not zero
  02BA [05] 03E304     173          brclr   1,dflag,send00  ; if flag set
  02BD [04] AD10       174          bsr     send1           ; send 1 as nineth bit
  02BF [03] 2002       175          bra     endend          ;
@@ -328,6 +329,7 @@ TRNMIT           0299
 TRYB             026E
 TVDAT            031A
 WPRES            0201
+
 
 ```
 
